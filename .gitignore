@@ -1,4 +1,8 @@
 
+# Firebase Service Account Key (KEEP SECURE!)
+backend/serviceAccountKey.json
+serviceAccountKey.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
