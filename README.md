@@ -34,7 +34,7 @@ FormFit aims to democratize access to professional fitness coaching by leveragin
 - **Progress Tracking**: Workout history and performance analytics
 - **Goal Setting**: Customizable fitness objectives and milestones
 
-### 💪 Workout Experience
+### Workout Experience
 - **Exercise-Specific Modes**: Focused detection for selected exercises
 - **Real-Time Feedback**: Instant form corrections and encouragement
 - **Progress Visualization**: Live workout stats and rep counters

@@ -4,12 +4,12 @@
 from fastapi import FastAPI
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
-
+from app.routes import router
 
 app = FastAPI()
 
 
-# Allow frontend to connect
+ # Allow frontend to connect (CORS for HTTP only)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
@@ -17,8 +17,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-from app.routes import router
-
 
 
 app.include_router(router, prefix="/api/v1")
