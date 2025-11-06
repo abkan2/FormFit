@@ -11,7 +11,7 @@ from typing import List, Any, Dict, Optional
 import httpx
 from httpx import Timeout
 import os
-from app.prompts import AGENT_PROMPT_ALEX
+from app.prompts import AGENT_PROMPT_ALEX, Demo_prompt_ALEX
 from app.services.firebase_service import firebase_service
 from dotenv import load_dotenv
 from pydantic import BaseModel
@@ -31,6 +31,7 @@ class ChatRequest(BaseModel):
 
 class SessionRequest(BaseModel):
     user_id: Optional[str] = None
+
 
 @router.post("/sessions")
 async def create_session(request: SessionRequest):
@@ -58,7 +59,7 @@ async def create_session(request: SessionRequest):
         "model": "gpt-4o-mini-realtime-preview",
         "voice": "verse",
         "instructions": [
-            {"role": "system", "content": personalized_prompt}
+            {"role": "system", "content": Demo_prompt_ALEX}
         ],
         "turn_detection": {
             "type": "server_vad",
