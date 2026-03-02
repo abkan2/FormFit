@@ -71,23 +71,18 @@ def display_pushup_ui(frame, detector_result):
         'error': (0, 0, 255)          # Red
     }
     
-    phase_color = phase_colors.get(phase, (255, 255, 255))
-    phase_display = phase.upper().replace('_', ' ')
+    # phase_color = phase_colors.get(phase, (255, 255, 255))
+    # phase_display = phase.upper().replace('_', ' ')
     
-    cv2.putText(overlay, f"Phase: {phase_display}", (20, 140), 
-               cv2.FONT_HERSHEY_SIMPLEX, 0.8, phase_color, 2)
+    # cv2.putText(overlay, f"Phase: {phase_display}", (20, 140), 
+    #            cv2.FONT_HERSHEY_SIMPLEX, 0.8, phase_color, 2)
     
-    # Calibration status
-    calibration_text = "✅ CALIBRATED" if detector_result['calibrated'] else "⚠️ NOT CALIBRATED"
-    calibration_color = (0, 255, 0) if detector_result['calibrated'] else (0, 165, 255)
-    cv2.putText(overlay, calibration_text, (20, 180), 
-               cv2.FONT_HERSHEY_SIMPLEX, 0.6, calibration_color, 2)
     
     # Form percentage
-    form_pct = detector_result['form_percentage']
-    form_color = (0, 255, 0) if form_pct >= 80 else (0, 165, 255) if form_pct >= 60 else (0, 0, 255)
-    cv2.putText(overlay, f"Form: {form_pct:.0f}%", (20, 220), 
-               cv2.FONT_HERSHEY_SIMPLEX, 0.6, form_color, 2)
+    # form_pct = detector_result['form_percentage']
+    # form_color = (0, 255, 0) if form_pct >= 80 else (0, 165, 255) if form_pct >= 60 else (0, 0, 255)
+    # cv2.putText(overlay, f"Form: {form_pct:.0f}%", (20, 220), 
+    #            cv2.FONT_HERSHEY_SIMPLEX, 0.6, form_color, 2)
     
     # Real-time feedback
     feedback = detector_result.get('feedback', '')

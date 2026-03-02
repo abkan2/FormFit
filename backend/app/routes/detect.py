@@ -118,6 +118,7 @@ class DetectionVideoTrack(VideoStreamTrack):
             # ✅ 1. Check head visibility (should be in top 30% of frame)
             head_y = nose[1]
             if head_y < 0.05:
+                print("Move back - head too close to top")
                 issues.append("Move back - head too close to top")
             elif head_y > 0.3:
                 issues.append("Move back - show your head properly")
@@ -125,15 +126,19 @@ class DetectionVideoTrack(VideoStreamTrack):
             # ✅ 2. Check feet visibility (should be in bottom 20% of frame)
             avg_ankle_y = (left_ankle[1] + right_ankle[1]) / 2
             if avg_ankle_y < 0.75:
+                print("Move back - show your feet")
                 issues.append("Move back - show your feet")
             elif avg_ankle_y > 0.95:
+                print("Move up - feet too close to bottom")
                 issues.append("Move up - feet too close to bottom")
 
                 # ✅ 3. Check horizontal centering (person should be centered)
             body_center_x = (left_shoulder[0] + right_shoulder[0]) / 2
             if body_center_x < 0.25:
+                print("Move right - center yourself")
                 issues.append("Move right - center yourself")
             elif body_center_x > 0.75:
+                print("Move left - center yourself")
                 issues.append("Move left - center yourself")
             
             # ✅ 4. Check if person is not too close/far (shoulder width)
@@ -156,8 +161,10 @@ class DetectionVideoTrack(VideoStreamTrack):
                     break
             
             is_in_frame = len(issues) == 0
-            message = "Perfect position! 👍" if is_in_frame else " • ".join(issues)
             
+            message = "Perfect position! 👍" if is_in_frame else " • ".join(issues)
+            print("User positioning feedback:", message)
+
             return is_in_frame, message
             
         except (IndexError, TypeError) as e:
@@ -328,7 +335,7 @@ pcs = set()
 async def webrtc_offer(request: dict):
     """
     Handle WebRTC offer from Unity
-    Creates data channel for JSON communication
+    Unity creates data channel, backend listens for it
     """
     try:
         offer = RTCSessionDescription(
@@ -346,43 +353,77 @@ async def webrtc_offer(request: dict):
         pc = RTCPeerConnection()
         pcs.add(pc)
         
-        # ✅ Create data channel for sending detection data to Unity
-        data_channel = pc.createDataChannel("detection_data")
-        detection_track_ref = {"track": None}  # Store reference
-        
-        @data_channel.on("open")
-        def on_data_channel_open():
-            print(f"✅ Data channel opened for user {user_id}")
-            # Send initial ready message
-            data_channel.send(json.dumps({
-                "type": "ready",
-                "detector_type": detector_type,
-                "message": f"{detector_type.title()} detection ready"
-            }))
-        
-        @data_channel.on("message")
-        def on_data_channel_message(message):
-            """Handle commands from Unity (optional)"""
-            try:
-                data = json.loads(message)
-                print(f"📨 Received from Unity: {data}")
+        detection_track_ref = {"track": None}
+        data_channel_ref = {"channel": None}
+
+        @pc.on("datachannel")
+        def on_datachannel(channel):
+            print(f"📡 Data channel received: {channel.label}")
+            data_channel_ref["channel"] = channel
+
+            @channel.on("open")
+            def on_data_channel_open():
+                print(f"✅ Data channel opened for user {user_id}")
+                print(f"🔍 ICE state when channel opened: {pc.iceConnectionState}")
+                print(f"🔍 Connection state when channel opened: {pc.connectionState}")
                 
-                # Handle reset command
-                if data.get("command") == "reset":
-                    if detection_track_ref["track"]:
-                        detection_track_ref["track"].detector.reset()
-                        
-                        # ✅ Reset transition state if calibration
-                        if detection_track_ref["track"].detector_type == "calibration":
-                            detection_track_ref["track"].transition_triggered = False
-                            detection_track_ref["track"].transition_start_time = None
-                        
-                        data_channel.send(json.dumps({
-                            "type": "reset_complete",
-                            "message": "Detector reset"
+                try:
+                    channel.send(json.dumps({
+                        "type": "ready",
+                        "detector_type": detector_type,
+                        "message": f"{detector_type.title()} detection ready",
+                        "ice_state": pc.iceConnectionState,
+                        "connection_state": pc.connectionState
+                    }))
+                    
+                    # Also send ICE ready immediately since channel is open
+                    channel.send(json.dumps({
+                        "type": "ice_ready",
+                        "message": "Data channel ready - starting detection",
+                        "connection_method": "unity_created_channel"
+                    }))
+                    print("🎯 ICE ready sent via Unity-created data channel")
+                    
+                except Exception as e:
+                    print(f"⚠️ Error sending initial messages: {e}")
+
+            @channel.on("message")
+            def on_data_channel_message(message):
+                """Handle commands from Unity"""
+                try:
+                    data = json.loads(message)
+                    print(f"📨 Received from Unity: {data}")
+                            # ✅ Handle Unity ready signal
+                    if data.get("type") == "unity_ready":
+                        print("🎯 Unity is ready - sending initial messages")
+                        channel.send(json.dumps({
+                            "type": "ready",
+                            "detector_type": detector_type,
+                            "message": f"{detector_type.title()} detection ready"
                         }))
-            except Exception as e:
-                print(f"⚠️ Error processing Unity message: {e}")
+                        channel.send(json.dumps({
+                            "type": "ice_ready",
+                            "message": "Data channel ready - starting detection"
+                        }))
+                        return
+                        
+                    # Handle reset command
+                    if data.get("command") == "reset":
+                        if detection_track_ref["track"]:
+                            detection_track_ref["track"].detector.reset()
+                            
+                            # ✅ Reset transition state if calibration
+                            if detection_track_ref["track"].detector_type == "calibration":
+                                detection_track_ref["track"].transition_triggered = False
+                                detection_track_ref["track"].transition_start_time = None
+                            
+                            channel.send(json.dumps({
+                                "type": "reset_complete",
+                                "message": "Detector reset"
+                            }))
+                            
+                except Exception as e:
+                    print(f"⚠️ Error processing Unity message: {e}")
         
         @pc.on("connectionstatechange")
         async def on_connectionstatechange():
@@ -390,13 +431,18 @@ async def webrtc_offer(request: dict):
             
             if pc.connectionState == "connected":
                 print(f"✅ Connection established for user {user_id}")
-                # Signal ready to start collecting data
-                if data_channel and data_channel.readyState == "open":
-                    data_channel.send(json.dumps({
-                        "type": "connection_ready",
-                        "message": "WebRTC connected - starting detection",
-                        "detector_type": detector_type
-                    }))
+                # Signal ready if data channel is available
+                channel = data_channel_ref.get("channel")
+                if channel and channel.readyState == "open":
+                    try:
+                        channel.send(json.dumps({
+                            "type": "connection_ready",
+                            "message": "WebRTC connected - starting detection",
+                            "detector_type": detector_type
+                        }))
+                    except Exception as e:
+                        print(f"⚠️ Error sending connection ready: {e}")
+                        
             elif pc.connectionState == "failed":
                 print(f"❌ Connection failed for user {user_id}")
                 await pc.close()
@@ -408,31 +454,49 @@ async def webrtc_offer(request: dict):
         @pc.on("iceconnectionstatechange")
         async def on_iceconnectionstatechange():
             print(f"🧊 ICE Connection State: {pc.iceConnectionState}")
-            if pc.iceConnectionState == "connected" and pc.iceGatheringState == "complete":
+            print(f"🔍 ICE Gathering State: {pc.iceGatheringState}")
+            
+            # Send ICE ready when conditions are met
+            if pc.iceConnectionState in ["connected", "checking"] or pc.connectionState == "connected":
                 print("🎯 ICE Connection ready for data transfer")
-                if data_channel and data_channel.readyState == "open":
-                    data_channel.send(json.dumps({
-                        "type": "ice_ready",
-                        "message": "ICE connection established"
-                    }))
-
-        # Add negotiation needed handler
-        @pc.on("negotiationneeded")
-        async def on_negotiationneeded():
-            print("📝 Negotiation needed event fired")
+                
+                channel = data_channel_ref.get("channel")
+                if channel and channel.readyState == "open":
+                    try:
+                        channel.send(json.dumps({
+                            "type": "ice_ready",
+                            "message": "ICE connection established via state change",
+                            "ice_state": pc.iceConnectionState,
+                            "gathering_state": pc.iceGatheringState
+                        }))
+                        print("✅ ICE ready message sent via state change")
+                    except Exception as e:
+                        print(f"⚠️ Failed to send ICE ready via state change: {e}")
+                else:
+                    print(f"🔄 Data channel not ready for ICE message: {channel.readyState if channel else 'None'}")
+            
+            elif pc.iceConnectionState == "failed":
+                print("❌ ICE Connection failed")
+            elif pc.iceConnectionState == "disconnected":
+                print("⚠️ ICE Connection disconnected")
+            elif pc.iceConnectionState == "closed":
+                print("🔌 ICE Connection closed")
         
         @pc.on("track")
         async def on_track(track):
             print(f"✅ Track {track.kind} received from user {user_id}")
             
             if track.kind == "video":
+                # Get the data channel from the reference
+                data_channel = data_channel_ref.get("channel")
+                
                 # ✅ Create detection track with data channel
                 detection_track = DetectionVideoTrack(
                     track=track,
                     detector_type=detector_type,
                     user_id=user_id,
-                    data_channel=data_channel  # Pass data channel
-                    ,session_id=session_id
+                    data_channel=data_channel,  # Pass data channel
+                    session_id=session_id
                 )
                 
                 detection_track_ref["track"] = detection_track  # Store reference

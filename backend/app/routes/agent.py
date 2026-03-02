@@ -33,6 +33,10 @@ class SessionRequest(BaseModel):
 class TTSRequest(BaseModel):
     text: str
 
+@router.get("/health")
+async def health_check():
+    return {"status": "ok", "message": "ALEX Agent is healthy!"}
+
 @router.post("/sessions")
 async def create_session(request: SessionRequest):
     if os.getenv("OPENAI_API_KEY") is None:
@@ -50,6 +54,11 @@ async def create_session(request: SessionRequest):
     if user_context:
         personalized_prompt += f"\n\n[CURRENT USER CONTEXT]\n{user_context}"
     
+    # Build personalized instructions string
+    instructions_text = Demo_prompt_ALEX
+    if user_context:
+        instructions_text += f"\n\n[CURRENT USER CONTEXT]\n{user_context}"
+
     url = "https://api.openai.com/v1/realtime/sessions"
     headers = {
         "Authorization": f"Bearer {os.getenv('OPENAI_API_KEY')}",
@@ -58,25 +67,31 @@ async def create_session(request: SessionRequest):
     payload = {
         "model": "gpt-4o-mini-realtime-preview",
         "voice": "verse",
-        "instructions": [
-            {"role": "system", "content": Demo_prompt_ALEX}
-        ],
+        # instructions must be a plain string, NOT a list
+        "instructions": instructions_text,
+        "input_audio_format": "pcm16",
+        "output_audio_format": "pcm16",
+        # Enable transcription so Unity can read captions / detect workout triggers
+        "input_audio_transcription": {"model": "gpt-4o-mini-transcribe"},
         "turn_detection": {
             "type": "server_vad",
-            "threshold": 0.7,
-            "prefix_padding_ms": 300,
-            "silence_duration_ms": 300,
+            "threshold": 0.5,           # lower = more sensitive
+            "prefix_padding_ms": 200,
+            "silence_duration_ms": 500, # wait 500ms of silence before responding
             "create_response": True,
         },
-        # "input_audio_transcription": {"model": "whisper-1"},
     }
 
-    # TODO: Add error handling for failed API requests
     async with httpx.AsyncClient() as client:
         response = await client.post(url, headers=headers, json=payload)
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"OpenAI Realtime session error: {response.text}"
+            )
         data = response.json()
 
-    # Send back the JSON we received from the OpenAI REST API
+    # Return the full session object — Unity needs client_secret.value as the ephemeral token
     return data
 
 

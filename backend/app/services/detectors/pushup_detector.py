@@ -344,6 +344,36 @@ class PushupDetector:
             ['down_bad_form', 'transition', 'up', 'up_bad_form'],
             ['down', 'down_bad_form', 'up', 'up'],
             ['down_bad_form', 'down', 'up_bad_form', 'up'],
+            
+            # ✅ NEW: Fast reps (minimal/no transition)
+            ['down', 'down', 'down', 'up'],  # Quick down hold then up
+            ['down_bad_form', 'down_bad_form', 'down_bad_form', 'up'],
+            ['down', 'up', 'up_bad_form', 'up_bad_form'],  # Fast mixed form
+            ['down_bad_form', 'up_bad_form', 'up', 'up'],
+            
+            # ✅ NEW: Hesitation patterns (repeated phases)
+            ['down', 'transition', 'transition', 'up'],  # Pause mid-movement
+            ['down_bad_form', 'transition', 'transition', 'up_bad_form'],
+            ['down', 'down', 'transition', 'up'],  # Hold down then push
+            ['down_bad_form', 'down_bad_form', 'transition', 'up'],
+            
+            # ✅ NEW: Partial reps that still count
+            ['transition', 'down', 'up', 'up'],  # Starting from neutral
+            ['transition', 'down_bad_form', 'up_bad_form', 'up_bad_form'],
+            ['down', 'transition', 'up', 'transition'],  # Rep then pause
+            
+            # ✅ NEW: More mixed good/bad combos
+            ['down', 'down_bad_form', 'up_bad_form', 'up'],
+            ['down_bad_form', 'down', 'up', 'up_bad_form'],
+            ['down', 'down_bad_form', 'transition', 'up'],
+            ['down_bad_form', 'down', 'transition', 'up_bad_form'],
+            ['down', 'transition', 'up', 'up_bad_form'],
+            ['down_bad_form', 'transition', 'up_bad_form', 'up'],
+            
+            # ✅ NEW: Very fast explosive reps
+            ['down', 'up', 'up', 'transition'],  # Fast rep then rest
+            ['down_bad_form', 'up', 'up', 'up'],  # Bad form down, fast up
+            ['down', 'down', 'up_bad_form', 'up'],  # Good down, partial bad up
         ]
         
         for pattern in valid_patterns:
